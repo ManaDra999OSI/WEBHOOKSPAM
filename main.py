@@ -1,47 +1,40 @@
 import os
-from flask import Flask, jsonify, request
+import time
 import requests
+from flask import Flask, jsonify
 
 app = Flask(__name__)
 
-# O Python agora vai buscar a URL de forma segura dentro das configurações da Render
 DISCORD_WEBHOOK_URL = os.environ.get("URL_DISCORD")
 
-
-def enviar_para_discord():
-    print("Acordando o script... Enviando mensagem para o Discord!")
-
-    # Se você esqueceu de configurar a variável na Render, o código avisa o erro
+def executar_bloco_10s():
+    """
+    Quando o cronjob de 1 minuto bater aqui, este loop vai rodar
+    6 vezes (6 x 10 segundos = 60 segundos), cobrindo o minuto inteiro.
+    """
     if not DISCORD_WEBHOOK_URL:
-        print(
-            "ERRO: A variável de ambiente 'URL_DISCORD' não foi encontrada na Render!"
-        )
+        print("ERRO: Variável 'URL_DISCORD' não configurada.")
         return
 
     payload = {
-        "content": "Olá! Este é um aviso automático enviado a cada 30 minutos direto da nuvem! 🚀"
+        "content": "Aviso automático enviado a cada 10 segundos via Cronjob! 🚀"
     }
 
-    try:
-        resposta = requests.post(DISCORD_WEBHOOK_URL, json=payload)
-        if resposta.status_code == 204:
-            print("Mensagem enviada com sucesso ao Discord!")
-        else:
-            print(
-                f"Erro ao enviar para o Discord: {resposta.status_code} - {resposta.text}"
-            )
-    except Exception as e:
-        print(f"Falha na conexão: {e}")
-
+    for i in range(6):
+        try:
+            resposta = requests.post(DISCORD_WEBHOOK_URL, json=payload)
+            print(f"Disparo {i+1}/6 enviado ao Discord. Status: {resposta.status_code}")
+        except Exception as e:
+            print(f"Falha na conexão no disparo {i+1}: {e}")
+        
+        # Espera 10 segundos antes do próximo disparo dentro do mesmo minuto
+        time.sleep(10)
 
 @app.route("/disparar-discord", methods=["GET", "POST"])
 def webhook_receptor():
-    enviar_para_discord()
-    return (
-        jsonify({"status": "sucesso", "mensagem": "Comando enviado ao Discord"}),
-        200,
-    )
-
+    # O cronjob externo bate aqui a cada 1 minuto, e o Python assume o controle dos 10s
+    executar_bloco_10s()
+    return jsonify({"status": "sucesso", "mensagem": "Bloco de 10 segundos finalizado"}), 200
 
 if __name__ == "__main__":
     porta = int(os.environ.get("PORT", 5000))
